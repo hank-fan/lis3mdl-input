@@ -32,7 +32,7 @@ Revision 2-0-0 2012/05/04
 #ifndef	__LIS3MDL_H__
 #define	__LIS3MDL_H__
 
-#define	LIS3MDL_DEV_NAME	"lsm303dlhc_mag"
+#define	LIS3MDL_DEV_NAME	"lis3mdl_mag"
 
 
 /************************************************/
