@@ -1308,6 +1308,6 @@ static void __exit lis3mdl_exit(void)
 module_init(lis3mdl_init);
 module_exit(lis3mdl_exit);
 
-MODULE_DESCRIPTION("lis3mdl accelerometer and magnetometer driver");
+MODULE_DESCRIPTION("lis3mdl magnetometer driver");
 MODULE_AUTHOR("Matteo Dameno, Denis Ciocca, STMicroelectronics");
 MODULE_LICENSE("GPL");
