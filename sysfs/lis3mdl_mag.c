@@ -6,7 +6,7 @@
 *		     : Denis Ciocca (denis.ciocca@st.com)
 *		     : Both authors are willing to be considered the contact
 *		     : and update points for the driver.
-* Version            : V.2.0.1
+* Version            : V.1.0.1
 * Date               : 2012/May/07
 * Description        : LIS3MDL magnetometer sensor API
 *
@@ -28,7 +28,7 @@
 ********************************************************************************
 Version History.
 
-Revision 2-0-0 2012/05/04
+Revision 1-0-1 2012/05/04
  first revision
 *******************************************************************************/
 
@@ -46,7 +46,9 @@ Revision 2-0-0 2012/05/04
 #include <linux/hrtimer.h>
 #include <linux/ktime.h>
 
-#include "lis3mdl.h"
+#include <linux/input/lis3mdl.h>
+/*#include "lis3mdl.h"*/
+
 
 #define	I2C_AUTO_INCREMENT	(0x80)
 #define MS_TO_NS(x)		(x*1000000L)
@@ -68,9 +70,9 @@ Revision 2-0-0 2012/05/04
 #define REG_MAG_DATA_ADDR	(0x28)	/** Mag. data low address register */
 
 /* Sensitivity */
-#define SENSITIVITY_MAG_4G	6842	/**	ugauss/LSB	*/
-#define SENSITIVITY_MAG_8G	3421	/**	ugauss/LSB	*/
-#define SENSITIVITY_MAG_10G	2737	/**	ugauss/LSB	*/
+#define SENSITIVITY_MAG_4G	146156	/**	ngauss/LSB	*/
+#define SENSITIVITY_MAG_8G	292312	/**	ngauss/LSB	*/
+#define SENSITIVITY_MAG_10G	365364	/**	ngauss/LSB	*/
 
 /* ODR */
 #define ODR_MAG_MASK		(0X1C)	/* Mask for odr change on mag */
@@ -163,7 +165,7 @@ struct lis3mdl_status {
 	int on_before_suspend;
 	int use_smbus;
 
-	u16 sensitivity_mag;
+	u32 sensitivity_mag;
 
 	u8 xy_mode;
 	u8 z_mode;
@@ -428,7 +430,7 @@ static int lis3mdl_mag_update_fs_range(struct lis3mdl_status *stat,
 {
 	int err=-1;
 
-	u16 sensitivity;
+	u32 sensitivity;
 	u8 updated_val;
 	u8 buf[2];
 
@@ -926,12 +928,12 @@ static int write_bit_on_register(struct lis3mdl_status *stat, u8 address,
 #endif
 
 static struct device_attribute attributes[] = {
-	__ATTR(pollrate_ms, 0644, attr_get_polling_rate_mag,
+	__ATTR(pollrate_ms, 0666, attr_get_polling_rate_mag,
 						attr_set_polling_rate_mag),
-	__ATTR(full_scale, 0644, attr_get_range_mag, attr_set_range_mag),
-	__ATTR(enable_device, 0644, attr_get_enable_mag, attr_set_enable_mag),
-	__ATTR(x_y_opearative_mode, 0644, attr_get_xy_mode, attr_set_xy_mode),
-	__ATTR(z_opearative_mode, 0644, attr_get_z_mode, attr_set_z_mode),
+	__ATTR(full_scale, 0666, attr_get_range_mag, attr_set_range_mag),
+	__ATTR(enable_device, 0666, attr_get_enable_mag, attr_set_enable_mag),
+	__ATTR(x_y_opearative_mode, 0666, attr_get_xy_mode, attr_set_xy_mode),
+	__ATTR(z_opearative_mode, 0666, attr_get_z_mode, attr_set_z_mode),
 #ifdef DEBUG
 	__ATTR(reg_value, 0600, attr_reg_get, attr_reg_set),
 	__ATTR(reg_addr, 0200, NULL, attr_addr_set),
@@ -997,11 +999,11 @@ static int lis3mdl_mag_get_data(struct lis3mdl_status *stat, int *xyz)
 	pr_debug("%s read x=%X %X(regH regL), x=%d(dec) [ug]\n",
 		LIS3MDL_MAG_DEV_NAME, mag_data[5], mag_data[4], hw_d[2]);
 #endif
-
+/*
 	hw_d[0] = hw_d[0] * stat->sensitivity_mag;
 	hw_d[1] = hw_d[1] * stat->sensitivity_mag;
 	hw_d[2] = hw_d[2] * stat->sensitivity_mag;
-
+*/
 	xyz[0] = ((stat->pdata_mag->negate_x) ?
 				(-hw_d[stat->pdata_mag->axis_map_x])
 		   			: (hw_d[stat->pdata_mag->axis_map_x]));
