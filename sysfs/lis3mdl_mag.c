@@ -1,4 +1,4 @@
-/******************** (C) COPYRIGHT 2012 STMicroelectronics ********************
+/******************** (C) COPYRIGHT 2013 STMicroelectronics ********************
 *
 * File Name          : lis3mdl.h
 * Authors            : MSH - C&I BU - Application Team
@@ -6,9 +6,9 @@
 *		     : Denis Ciocca (denis.ciocca@st.com)
 *		     : Both authors are willing to be considered the contact
 *		     : and update points for the driver.
-* Version            : V.1.0.1
-* Date               : 2012/May/07
-* Description        : LIS3MDL magnetometer sensor API
+* Version            : V.1.0.2
+* Date               : 2013/Sep/19
+* Description        : LIS3MDL magnetometer driver
 *
 ********************************************************************************
 *
@@ -47,7 +47,7 @@ Revision 1-0-1 2012/05/04
 #include <linux/ktime.h>
 
 #include <linux/input/lis3mdl.h>
-/*#include "lis3mdl.h"*/
+/* #include "lis3mdl.h" */
 
 
 #define	I2C_AUTO_INCREMENT	(0x80)
@@ -73,6 +73,7 @@ Revision 1-0-1 2012/05/04
 #define SENSITIVITY_MAG_4G	146156	/**	ngauss/LSB	*/
 #define SENSITIVITY_MAG_8G	292312	/**	ngauss/LSB	*/
 #define SENSITIVITY_MAG_10G	365364	/**	ngauss/LSB	*/
+#define SENSITIVITY_MAG_16G	584454	/**	ngauss/LSB	*/
 
 /* ODR */
 #define ODR_MAG_MASK		(0X1C)	/* Mask for odr change on mag */
@@ -315,7 +316,7 @@ static int lis3mdl_i2c_write(struct lis3mdl_status *stat, u8 *buf, int len)
 static int lis3mdl_hw_init(struct lis3mdl_status *stat)
 {
 	int err = -1;
-	u8 buf[1];
+	u8 buf[6];
 
 	pr_info("%s: hw init start\n", LIS3MDL_DEV_NAME);
 
@@ -348,6 +349,20 @@ static int lis3mdl_hw_init(struct lis3mdl_status *stat)
 	status_registers.cntrl5.resume_value =
 					status_registers.cntrl5.default_value;
 
+	buf[0] = status_registers.cntrl1.address;
+	buf[1] = status_registers.cntrl1.default_value;
+	buf[2] = status_registers.cntrl2.default_value;
+	buf[3] = status_registers.cntrl3.default_value;
+	buf[4] = status_registers.cntrl4.default_value;
+	buf[5] = status_registers.cntrl5.default_value;
+
+	err = lis3mdl_i2c_write(stat, buf, 5);
+	if (err < 0) {
+		dev_warn(&stat->client->dev,
+		"Error initializing CLTR_REG registers\n");
+		goto err_reginit;
+	}
+
 	stat->xy_mode = X_Y_ULTRA_HIGH_PERFORMANCE;
 	stat->z_mode = Z_ULTRA_HIGH_PERFORMANCE;
 	stat->hw_initialized = 1;
@@ -355,6 +370,7 @@ static int lis3mdl_hw_init(struct lis3mdl_status *stat)
 
 	return 0;
 
+err_reginit:
 err_unknown_device:
 err_firstread:
 	stat->hw_working = 0;
@@ -376,9 +392,8 @@ static int lis3mdl_mag_device_power_off(struct lis3mdl_status *stat)
 		dev_err(&stat->client->dev, "magnetometer soft power off "
 							"failed: %d\n", err);
 
-	if (stat->pdata_mag->power_off) {
+	if (stat->pdata_mag->power_off)
 		stat->pdata_mag->power_off();
-	}
 
 	atomic_set(&stat->enabled_mag, 0);
 
@@ -428,8 +443,7 @@ err_resume_state:
 static int lis3mdl_mag_update_fs_range(struct lis3mdl_status *stat,
 								u8 new_fs_range)
 {
-	int err=-1;
-
+	int err = -1;
 	u32 sensitivity;
 	u8 updated_val;
 	u8 buf[2];
@@ -443,6 +457,9 @@ static int lis3mdl_mag_update_fs_range(struct lis3mdl_status *stat,
 		break;
 	case LIS3MDL_MAG_FS_10G:
 		sensitivity = SENSITIVITY_MAG_10G;
+		break;
+	case LIS3MDL_MAG_FS_16G:
+		sensitivity = SENSITIVITY_MAG_16G;
 		break;
 	default:
 		dev_err(&stat->client->dev, "invalid magnetometer "
@@ -516,7 +533,7 @@ static int lis3mdl_mag_update_operative_mode(struct lis3mdl_status *stat,
 	u8 mask;
 	u8 addr;
 
-	if(axis==0) {
+	if (axis == 0) {
 		config[0] = REG_CNTRL1_ADDR;
 		mask = X_Y_PERFORMANCE_MASK;
 		addr = REG_CNTRL1_ADDR;
@@ -533,12 +550,13 @@ static int lis3mdl_mag_update_operative_mode(struct lis3mdl_status *stat,
 
 	config[0] = addr;
 	err = lis3mdl_i2c_write(stat,config,1);
-	if(err<0)
+	if (err < 0)
 		goto error;
-	if(axis==0)
+	if (axis == 0)
 		stat->xy_mode = value;
 	else
 		stat->z_mode = value;
+
 	return err;
 
 error:
@@ -579,7 +597,8 @@ static int lis3mdl_validate_negate(u8 *negate_x, u8 *negate_y, u8 *negate_z,
 
 static int lis3mdl_mag_validate_pdata(struct lis3mdl_status *stat)
 {
-	int res=-1;
+	int res = -1;
+
 	res=lis3mdl_validate_polling(&stat->pdata_mag->min_interval,
 				&stat->pdata_mag->poll_interval,
 				(unsigned int)LIS3MDL_MAG_MIN_POLL_PERIOD_MS,
@@ -587,7 +606,7 @@ static int lis3mdl_mag_validate_pdata(struct lis3mdl_status *stat)
 				&stat->pdata_mag->axis_map_y,
 				&stat->pdata_mag->axis_map_z,
 				stat->client);
-	if(res<0)
+	if(res < 0)
 		return -EINVAL;
 
 	res=lis3mdl_validate_negate(&stat->pdata_mag->negate_x,
@@ -650,11 +669,11 @@ static ssize_t attr_set_polling_rate_mag(struct device *dev, struct device_attri
 	struct lis3mdl_status *stat = dev_get_drvdata(dev);
 	unsigned long interval_ms;
 
-	if (strict_strtoul(buf, 10, &interval_ms))
+	if (kstrtoul(buf, 10, &interval_ms))
 		return -EINVAL;
 	if (!interval_ms)
 		return -EINVAL;
-	interval_ms = (unsigned int)max((unsigned int)interval_ms,
+	interval_ms = max_t(unsigned int, (unsigned int)interval_ms,
 						stat->pdata_mag->min_interval);
 	mutex_lock(&stat->lock);
 	stat->pdata_mag->poll_interval = (unsigned int)interval_ms;
@@ -677,7 +696,7 @@ static ssize_t attr_set_enable_mag(struct device *dev, struct device_attribute *
 	struct lis3mdl_status *stat = dev_get_drvdata(dev);
 	unsigned long val;
 
-	if (strict_strtoul(buf, 10, &val))
+	if (kstrtoul(buf, 10, &val))
 		return -EINVAL;
 
 	if (val)
@@ -692,10 +711,11 @@ static ssize_t attr_get_range_mag(struct device *dev, struct device_attribute *a
 		char *buf)
 {
 	u8 val;
-	struct lis3mdl_status *stat = dev_get_drvdata(dev);
 	int range = 2;
+	struct lis3mdl_status *stat = dev_get_drvdata(dev);
+
 	mutex_lock(&stat->lock);
-	val = stat->pdata_mag->fs_range ;
+	val = stat->pdata_mag->fs_range;
 	switch (val) {
 	case LIS3MDL_MAG_FS_4G:
 		range = 4;
@@ -706,8 +726,12 @@ static ssize_t attr_get_range_mag(struct device *dev, struct device_attribute *a
 	case LIS3MDL_MAG_FS_10G:
 		range = 10;
 		break;
+	case LIS3MDL_MAG_FS_16G:
+		range = 16;
+		break;
 	}
 	mutex_unlock(&stat->lock);
+
 	return sprintf(buf, "%d\n", range);
 }
 
@@ -718,7 +742,8 @@ static ssize_t attr_set_range_mag(struct device *dev, struct device_attribute *a
 	unsigned long val;
 	u8 range;
 	int err;
-	if (strict_strtoul(buf, 10, &val))
+
+	if (kstrtoul(buf, 10, &val))
 		return -EINVAL;
 	switch (val) {
 	case 4:
@@ -729,6 +754,9 @@ static ssize_t attr_set_range_mag(struct device *dev, struct device_attribute *a
 		break;
 	case 10:
 		range = LIS3MDL_MAG_FS_10G;
+		break;
+	case 16:
+		range = LIS3MDL_MAG_FS_16G;
 		break;
 	default:
 		dev_err(&stat->client->dev, "magnetometer invalid range "
@@ -753,8 +781,9 @@ static ssize_t attr_get_xy_mode(struct device *dev, struct device_attribute *att
 		char *buf)
 {
 	u8 val;
-	struct lis3mdl_status *stat = dev_get_drvdata(dev);
 	char mode[13];
+	struct lis3mdl_status *stat = dev_get_drvdata(dev);
+
 	mutex_lock(&stat->lock);
 	val = stat->xy_mode;
 	switch (val) {
@@ -825,6 +854,7 @@ static ssize_t attr_get_z_mode(struct device *dev, struct device_attribute *attr
 	u8 val;
 	char mode[13];
 	struct lis3mdl_status *stat = dev_get_drvdata(dev);
+
 	mutex_lock(&stat->lock);
 	val = stat->z_mode;
 	switch (val) {
@@ -934,10 +964,7 @@ static struct device_attribute attributes[] = {
 	__ATTR(enable_device, 0666, attr_get_enable_mag, attr_set_enable_mag),
 	__ATTR(x_y_opearative_mode, 0666, attr_get_xy_mode, attr_set_xy_mode),
 	__ATTR(z_opearative_mode, 0666, attr_get_z_mode, attr_set_z_mode),
-#ifdef DEBUG
-	__ATTR(reg_value, 0600, attr_reg_get, attr_reg_set),
-	__ATTR(reg_addr, 0200, NULL, attr_addr_set),
-#endif
+
 };
 
 static int create_sysfs_interfaces(struct device *dev)
@@ -964,9 +991,12 @@ static void remove_sysfs_interfaces(struct device *dev)
 
 int lis3mdl_mag_input_open(struct input_dev *input)
 {
+#if MAG_ENABLE_ON_INPUT_OPEN
 	struct lis3mdl_status *stat = input_get_drvdata(input);
-
-	return lis3mdl_mag_enable(stat);
+	lis3mdl_mag_enable(stat);
+#else
+	return 0;
+#endif
 }
 
 void lis3mdl_mag_input_close(struct input_dev *dev)
@@ -987,16 +1017,16 @@ static int lis3mdl_mag_get_data(struct lis3mdl_status *stat, int *xyz)
 	if (err < 0)
 		return err;
 
-	hw_d[0] = ((s32)( (s16)((mag_data[1] << 8) | (mag_data[0]))));
-	hw_d[1] = ((s32)( (s16)((mag_data[3] << 8) | (mag_data[2]))));
-	hw_d[2] = ((s32)( (s16)((mag_data[5] << 8) | (mag_data[4]))));
+	hw_d[0] = ((s32)((s16)((mag_data[1] << 8) | (mag_data[0]))));
+	hw_d[1] = ((s32)((s16)((mag_data[3] << 8) | (mag_data[2]))));
+	hw_d[2] = ((s32)((s16)((mag_data[5] << 8) | (mag_data[4]))));
 
 #ifdef DEBUG
-	pr_debug("%s read x=%X %X(regH regL), x=%d(dec) [ug]\n",
+	pr_debug("%s read x=0x%02x 0x%02x (regH regL), x=%d (dec) [LSB]\n",
 		LIS3MDL_MAG_DEV_NAME, mag_data[1], mag_data[0], hw_d[0]);
-	pr_debug("%s read x=%X %X(regH regL), x=%d(dec) [ug]\n",
+	pr_debug("%s read y=0x%02x 0x%02x (regH regL), y=%d (dec) [LSB]\n",
 		LIS3MDL_MAG_DEV_NAME, mag_data[3], mag_data[2], hw_d[1]);
-	pr_debug("%s read x=%X %X(regH regL), x=%d(dec) [ug]\n",
+	pr_debug("%s read z=0x%02x 0x%02x (regH regL), z=%d (dec) [LSB]\n",
 		LIS3MDL_MAG_DEV_NAME, mag_data[5], mag_data[4], hw_d[2]);
 #endif
 /*
@@ -1032,8 +1062,8 @@ static int lis3mdl_mag_input_init(struct lis3mdl_status *stat)
 	stat->input_dev_mag = input_allocate_device();
 	if (!stat->input_dev_mag) {
 		err = -ENOMEM;
-		dev_err(&stat->client->dev, "magnetometer "
-					"input device allocation failed\n");
+		dev_err(&stat->client->dev,
+			"magnetometer input device allocation failed\n");
 		goto err0;
 	}
 
@@ -1167,8 +1197,12 @@ static int lis3mdl_probe(struct i2c_client *client,
 	if (client->dev.platform_data == NULL) {
 		memcpy(stat->pdata_mag, &default_lis3mdl_mag_pdata,
 						sizeof(*stat->pdata_mag));
-		dev_info(&client->dev, "using default plaform_data for "
-					"magnetometer\n");
+		dev_info(&client->dev,
+			"using default plaform_data for magnetometer\n");
+	}
+	else {
+		memcpy(stat->pdata_mag, client->dev.platform_data,
+						sizeof(*stat->pdata_mag));
 	}
 
 	err = lis3mdl_mag_validate_pdata(stat);

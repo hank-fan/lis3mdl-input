@@ -1,11 +1,12 @@
-/******************** (C) COPYRIGHT 2012 STMicroelectronics ********************
+
+/******************** (C) COPYRIGHT 2013 STMicroelectronics ********************
 *
 * File Name          : lis3mdl.h
-* Authors            : MSH - C&I BU - Application Team
+* Authors	: AMS - Motion Mems Division - Application Team
 *		     : Matteo Dameno (matteo.dameno@st.com)
 *		     : Denis Ciocca (denis.ciocca@st.com)
-* Version            : V.1.0.1
-* Date               : 2012/May/07
+* Version            : V.1.0.2
+* Date               : 2013/Sep/19
 *
 ********************************************************************************
 *
@@ -52,17 +53,20 @@ magnetometer:
 
 /* Magnetometer Sensor Full Scale */
 #define LIS3MDL_MAG_FS_MASK	(0x60)
-#define LIS3MDL_MAG_FS_4G	(0x00)	/* Full scale 4 gauss */
-#define LIS3MDL_MAG_FS_8G	(0x20)	/* Full scale 8 gauss */
-#define LIS3MDL_MAG_FS_10G	(0x40)	/* Full scale 10 gauss */
+#define LIS3MDL_MAG_FS_4G	(0x00)	/* Full scale 4 Gauss */
+#define LIS3MDL_MAG_FS_8G	(0x20)	/* Full scale 8 Gauss */
+#define LIS3MDL_MAG_FS_10G	(0x40)	/* Full scale 10 Gauss */
+#define LIS3MDL_MAG_FS_16G	(0x60)	/* Full scale 16 Gauss */
 
 
 #ifdef	__KERNEL__
 
+#define MAG_ENABLE_ON_INPUT_OPEN 0
+
 #define DEFAULT_INT1_GPIO		(-EINVAL)
 #define DEFAULT_INT2_GPIO		(-EINVAL)
 
-#define LIS3MDL_MAG_MIN_POLL_PERIOD_MS	5
+#define LIS3MDL_MAG_MIN_POLL_PERIOD_MS	13
 
 
 struct lis3mdl_mag_platform_data {
