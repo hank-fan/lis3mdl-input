@@ -991,9 +991,9 @@ static void remove_sysfs_interfaces(struct device *dev)
 
 int lis3mdl_mag_input_open(struct input_dev *input)
 {
-#if MAG_ENABLE_ON_INPUT_OPEN
+#if (LIS3MDL_MAG_ENABLE_ON_INPUT_OPEN != 0)
 	struct lis3mdl_status *stat = input_get_drvdata(input);
-	lis3mdl_mag_enable(stat);
+	return lis3mdl_mag_enable(stat);
 #else
 	return 0;
 #endif

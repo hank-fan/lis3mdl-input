@@ -61,7 +61,7 @@ magnetometer:
 
 #ifdef	__KERNEL__
 
-#define MAG_ENABLE_ON_INPUT_OPEN 0
+#define LIS3MDL_MAG_ENABLE_ON_INPUT_OPEN 0
 
 #define DEFAULT_INT1_GPIO		(-EINVAL)
 #define DEFAULT_INT2_GPIO		(-EINVAL)
