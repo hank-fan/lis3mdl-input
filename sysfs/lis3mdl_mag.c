@@ -153,7 +153,7 @@ struct lis3mdl_status {
 	struct work_struct input_work_mag;
 
 	struct hrtimer hr_timer_mag;
-	ktime_t ktime_mag;
+	ktime_t ktime;
 
 	struct input_dev *input_dev_mag;
 
@@ -490,6 +490,7 @@ static int lis3mdl_mag_update_fs_range(struct lis3mdl_status *stat,
 	err = lis3mdl_i2c_write(stat, buf, 1);
 	if (err < 0)
 		goto error;
+
 	status_registers.cntrl2.resume_value = updated_val;
 	stat->sensitivity_mag = sensitivity;
 
@@ -508,6 +509,9 @@ static int lis3mdl_mag_update_odr(struct lis3mdl_status *stat,
 	u8 config[2];
 	int i;
 
+	if (atomic_read(&stat->enabled_mag) == 0)
+		return err;
+
 	for (i = ARRAY_SIZE(lis3mdl_mag_odr_table) - 1; i >= 0; i--) {
 		if ((lis3mdl_mag_odr_table[i].cutoff_us <= poll_interval_ms)
 								|| (i == 0))
@@ -517,20 +521,18 @@ static int lis3mdl_mag_update_odr(struct lis3mdl_status *stat,
 	config[1] = ((ODR_MAG_MASK & lis3mdl_mag_odr_table[i].value) |
 		((~ODR_MAG_MASK) & status_registers.cntrl1.resume_value));
 
-	if (atomic_read(&stat->enabled_mag)) {
-		config[0] = status_registers.cntrl1.address;
-		err = lis3mdl_i2c_write(stat, config, 1);
-		if (err < 0)
-			goto error;
-		status_registers.cntrl1.resume_value = config[1];
-		stat->ktime_mag = ktime_set(0, MS_TO_NS(poll_interval_ms));
+	
+	config[0] = status_registers.cntrl1.address;
+	err = lis3mdl_i2c_write(stat, config, 1);
+	if (err < 0) {
+		dev_err(&stat->client->dev, "update magnetometer odr failed "
+		"0x%02x,0x%02x: %d\n", config[0], config[1], err);
+
+		return err;
 	}
 
-	return err;
-
-error:
-	dev_err(&stat->client->dev, "update magnetometer odr failed "
-			"0x%02x,0x%02x: %d\n", config[0], config[1], err);
+	status_registers.cntrl1.resume_value = config[1];
+	stat->ktime = ktime_set(0, MS_TO_NS(poll_interval_ms));
 
 	return err;
 }
@@ -639,7 +641,8 @@ static int lis3mdl_mag_enable(struct lis3mdl_status *stat)
 			atomic_set(&stat->enabled_mag, 0);
 			return err;
 		}
-		hrtimer_start(&stat->hr_timer_mag, stat->ktime_mag, HRTIMER_MODE_REL);
+		lis3mdl_mag_update_odr(stat, stat->pdata_mag->poll_interval);
+		hrtimer_start(&stat->hr_timer_mag, stat->ktime, HRTIMER_MODE_REL);
 	}
 
 	return 0;
@@ -1139,7 +1142,7 @@ static void poll_function_work_mag(struct work_struct *input_work_mag)
 	}
 
 	mutex_unlock(&stat->lock);
-	hrtimer_start(&stat->hr_timer_mag, stat->ktime_mag, HRTIMER_MODE_REL);
+	hrtimer_start(&stat->hr_timer_mag, stat->ktime, HRTIMER_MODE_REL);
 }
 
 enum hrtimer_restart poll_function_read_mag(struct hrtimer *timer)
