@@ -53,12 +53,6 @@ Revision 1-0-1 2012/05/04
 #define	I2C_AUTO_INCREMENT	(0x80)
 #define MS_TO_NS(x)		(x*1000000L)
 
-#define	MAG_G_MAX_POS		983520	/** max positive value mag [ugauss] */
-#define	MAG_G_MAX_NEG		983040	/** max negative value mag [ugauss] */
-
-#define FUZZ			0
-#define FLAT			0
-
 /* Address registers */
 #define REG_WHOAMI_ADDR		(0x0F)	/** Who am i address register */
 #define REG_CNTRL1_ADDR		(0x20)	/** CNTRL1 address register */
@@ -115,6 +109,12 @@ Revision 1-0-1 2012/05/04
 
 #define REG_DEF_ALL_ZEROS	(0x00)
 
+#define INPUT_EVENT_TYPE		EV_MSC
+#define INPUT_EVENT_X			MSC_SERIAL
+#define INPUT_EVENT_Y			MSC_PULSELED
+#define INPUT_EVENT_Z			MSC_GESTURE
+#define INPUT_EVENT_TIME_MSB		MSC_SCAN
+#define INPUT_EVENT_TIME_LSB		MSC_MAX
 
 struct workqueue_struct *lis3mdl_workqueue = 0;
 
@@ -162,6 +162,7 @@ struct lis3mdl_status {
 	int hw_working;
 
 	atomic_t enabled_mag;
+	int64_t timestamp;
 
 	int on_before_suspend;
 	int use_smbus;
@@ -210,6 +211,15 @@ static struct status_registers {
 	.cntrl4.address=REG_CNTRL4_ADDR, .cntrl4.default_value=REG_DEF_CNTRL4,
 	.cntrl5.address=REG_CNTRL5_ADDR, .cntrl5.default_value=REG_DEF_CNTRL5,
 };
+
+static inline int64_t lis3mdl_get_time_ns(void)
+{
+	struct timespec ts;
+	
+	get_monotonic_boottime(&ts);
+	
+	return timespec_to_ns(&ts);
+}
 
 static int lis3mdl_i2c_read(struct lis3mdl_status *stat, u8 *buf, int len)
 {
@@ -1049,9 +1059,13 @@ static int lis3mdl_mag_get_data(struct lis3mdl_status *stat, int *xyz)
 
 static void lis3mdl_mag_report_values(struct lis3mdl_status *stat, int *xyz)
 {
-	input_report_abs(stat->input_dev_mag, ABS_X, xyz[0]);
-	input_report_abs(stat->input_dev_mag, ABS_Y, xyz[1]);
-	input_report_abs(stat->input_dev_mag, ABS_Z, xyz[2]);
+	input_event(stat->input_dev_mag, INPUT_EVENT_TYPE, INPUT_EVENT_X, xyz[0]);
+	input_event(stat->input_dev_mag, INPUT_EVENT_TYPE, INPUT_EVENT_Y, xyz[1]);
+	input_event(stat->input_dev_mag, INPUT_EVENT_TYPE, INPUT_EVENT_Z, xyz[2]);
+	input_event(stat->input_dev_mag, INPUT_EVENT_TYPE, INPUT_EVENT_TIME_MSB,
+						stat->timestamp >> 32);
+	input_event(stat->input_dev_mag, INPUT_EVENT_TYPE, INPUT_EVENT_TIME_LSB,
+						stat->timestamp & 0xffffffff);
 	input_sync(stat->input_dev_mag);
 }
 
@@ -1075,14 +1089,12 @@ static int lis3mdl_mag_input_init(struct lis3mdl_status *stat)
 
 	input_set_drvdata(stat->input_dev_mag, stat);
 
-	set_bit(EV_ABS, stat->input_dev_mag->evbit);
-
-	input_set_abs_params(stat->input_dev_mag, ABS_X,
-				-MAG_G_MAX_NEG, MAG_G_MAX_POS, FUZZ, FLAT);
-	input_set_abs_params(stat->input_dev_mag, ABS_Y,
-				-MAG_G_MAX_NEG, MAG_G_MAX_POS, FUZZ, FLAT);
-	input_set_abs_params(stat->input_dev_mag, ABS_Z,
-				-MAG_G_MAX_NEG, MAG_G_MAX_POS, FUZZ, FLAT);
+	__set_bit(INPUT_EVENT_TYPE, stat->input_dev_mag->evbit );
+	__set_bit(INPUT_EVENT_TIME_MSB, stat->input_dev_mag->mscbit);
+	__set_bit(INPUT_EVENT_TIME_LSB, stat->input_dev_mag->mscbit);
+	__set_bit(INPUT_EVENT_X, stat->input_dev_mag->mscbit);
+	__set_bit(INPUT_EVENT_Y, stat->input_dev_mag->mscbit);
+	__set_bit(INPUT_EVENT_Z, stat->input_dev_mag->mscbit);
 
 	err = input_register_device(stat->input_dev_mag);
 	if (err) {
@@ -1138,6 +1150,7 @@ enum hrtimer_restart poll_function_read_mag(struct hrtimer *timer)
 	stat = container_of((struct hrtimer *)timer,
 				struct lis3mdl_status, hr_timer_mag);
 
+	stat->timestamp = lis3mdl_get_time_ns();
 	queue_work(lis3mdl_workqueue, &stat->input_work_mag);
 	return HRTIMER_NORESTART;
 }
