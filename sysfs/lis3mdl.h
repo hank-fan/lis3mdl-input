@@ -66,7 +66,7 @@ magnetometer:
 #define DEFAULT_INT1_GPIO		(-EINVAL)
 #define DEFAULT_INT2_GPIO		(-EINVAL)
 
-#define LIS3MDL_MAG_MIN_POLL_PERIOD_MS	13
+#define LIS3MDL_MAG_MIN_POLL_PERIOD_MS	10
 
 
 struct lis3mdl_mag_platform_data {
