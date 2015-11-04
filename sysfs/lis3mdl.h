@@ -55,7 +55,7 @@ magnetometer:
 #define LIS3MDL_MAG_FS_MASK	(0x60)
 #define LIS3MDL_MAG_FS_4G	(0x00)	/* Full scale 4 Gauss */
 #define LIS3MDL_MAG_FS_8G	(0x20)	/* Full scale 8 Gauss */
-#define LIS3MDL_MAG_FS_10G	(0x40)	/* Full scale 10 Gauss */
+#define LIS3MDL_MAG_FS_12G	(0x40)	/* Full scale 12 Gauss */
 #define LIS3MDL_MAG_FS_16G	(0x60)	/* Full scale 16 Gauss */
 
 

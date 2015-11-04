@@ -64,10 +64,10 @@ Revision 1-0-1 2012/05/04
 #define REG_MAG_DATA_ADDR	(0x28)	/** Mag. data low address register */
 
 /* Sensitivity */
-#define SENSITIVITY_MAG_4G	146156	/**	ngauss/LSB	*/
-#define SENSITIVITY_MAG_8G	292312	/**	ngauss/LSB	*/
-#define SENSITIVITY_MAG_10G	365364	/**	ngauss/LSB	*/
-#define SENSITIVITY_MAG_16G	584454	/**	ngauss/LSB	*/
+#define SENSITIVITY_MAG_4G	146	/**	uGauss/LSB	*/
+#define SENSITIVITY_MAG_8G	292	/**	uGauss/LSB	*/
+#define SENSITIVITY_MAG_12G	438	/**	uGauss/LSB	*/
+#define SENSITIVITY_MAG_16G	584	/**	uGauss/LSB	*/
 
 /* ODR */
 #define ODR_MAG_MASK		(0X1C)	/* Mask for odr change on mag */
@@ -465,8 +465,8 @@ static int lis3mdl_mag_update_fs_range(struct lis3mdl_status *stat,
 	case LIS3MDL_MAG_FS_8G:
 		sensitivity = SENSITIVITY_MAG_8G;
 		break;
-	case LIS3MDL_MAG_FS_10G:
-		sensitivity = SENSITIVITY_MAG_10G;
+	case LIS3MDL_MAG_FS_12G:
+		sensitivity = SENSITIVITY_MAG_12G;
 		break;
 	case LIS3MDL_MAG_FS_16G:
 		sensitivity = SENSITIVITY_MAG_16G;
@@ -736,8 +736,8 @@ static ssize_t attr_get_range_mag(struct device *dev, struct device_attribute *a
 	case LIS3MDL_MAG_FS_8G:
 		range = 8;
 		break;
-	case LIS3MDL_MAG_FS_10G:
-		range = 10;
+	case LIS3MDL_MAG_FS_12G:
+		range = 12;
 		break;
 	case LIS3MDL_MAG_FS_16G:
 		range = 16;
@@ -765,8 +765,8 @@ static ssize_t attr_set_range_mag(struct device *dev, struct device_attribute *a
 	case 8:
 		range = LIS3MDL_MAG_FS_8G;
 		break;
-	case 10:
-		range = LIS3MDL_MAG_FS_10G;
+	case 12:
+		range = LIS3MDL_MAG_FS_12G;
 		break;
 	case 16:
 		range = LIS3MDL_MAG_FS_16G;
@@ -1042,11 +1042,11 @@ static int lis3mdl_mag_get_data(struct lis3mdl_status *stat, int *xyz)
 	pr_debug("%s read z=0x%02x 0x%02x (regH regL), z=%d (dec) [LSB]\n",
 		LIS3MDL_MAG_DEV_NAME, mag_data[5], mag_data[4], hw_d[2]);
 #endif
-/*
+
 	hw_d[0] = hw_d[0] * stat->sensitivity_mag;
 	hw_d[1] = hw_d[1] * stat->sensitivity_mag;
 	hw_d[2] = hw_d[2] * stat->sensitivity_mag;
-*/
+
 	xyz[0] = ((stat->pdata_mag->negate_x) ?
 				(-hw_d[stat->pdata_mag->axis_map_x])
 		   			: (hw_d[stat->pdata_mag->axis_map_x]));
